@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X POST \"https://overpowering-nonreticently-leia.ngrok-free.app/vapi/tool-call\" -H \"Content-Type: application/json\" -H \"ngrok-skip-browser-warning: true\" -d '{\"\"message\"\":{\"\"type\"\":\"\"tool-calls\"\",\"\"toolCallList\"\":[{\"\"id\"\":\"\"test\"\",\"\"type\"\":\"\"function\"\",\"\"function\"\":{\"\"name\"\":\"\"check_availability\"\",\"\"arguments\"\":{\"\"check_in\"\":\"\"2026-03-27\"\"}}}]}}')",
+      "Bash(curl -s \"https://overpowering-nonreticently-leia.ngrok-free.app/status\" -H \"ngrok-skip-browser-warning: true\")",
+      "Bash(curl -s \"http://localhost:3000/status\")",
+      "Bash(ngrok version:*)",
+      "Bash(npm list:*)",
+      "Read(//c/Users/AG/**)",
+      "Bash(curl -s http://localhost:4040/api/tunnels)",
+      "Bash(curl -s -X POST \"https://overpowering-nonreticently-leia.ngrok-free.dev/vapi/tool-call\" -H \"Content-Type: application/json\" -H \"ngrok-skip-browser-warning: true\" -d '{\"\"message\"\":{\"\"type\"\":\"\"tool-calls\"\",\"\"toolCallList\"\":[{\"\"id\"\":\"\"test-123\"\",\"\"type\"\":\"\"function\"\",\"\"function\"\":{\"\"name\"\":\"\"check_availability\"\",\"\"arguments\"\":{\"\"check_in\"\":\"\"2026-03-28\"\"}}}]}}')",
+      "Bash(curl -s http://localhost:3000/status)",
+      "Bash(netstat -ano)"
+    ]
+  }
+}
