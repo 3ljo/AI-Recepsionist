@@ -13,6 +13,7 @@ import { registerVapiRoutes } from "../vapi/webhook-handler.js";
 import supabase from "./supabase.js";
 import logger, { requestIdMiddleware } from "./logger.js";
 import { apiKeyAuth } from "./middleware/auth.js";
+import { jwtAuth } from "./middleware/jwt-auth.js";
 import { validateChat, validateEndCall } from "./middleware/validate.js";
 import { chatRateLimit, statusRateLimit } from "./middleware/rate-limit.js";
 import {
@@ -39,7 +40,7 @@ app.use(
   cors({
     origin: config.allowedOrigins,
     methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type", "x-api-key"],
+    allowedHeaders: ["Content-Type", "x-api-key", "Authorization"],
   })
 );
 app.use(express.json());
@@ -64,7 +65,7 @@ const DEMO_BUSINESS_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 app.post(
   "/chat",
   chatRateLimit(config.rateLimitChat),
-  // apiKeyAuth, // disabled for testing
+  jwtAuth,
   validateChat,
   async (req, res, next) => {
     try {
@@ -76,6 +77,7 @@ app.post(
       logger.info("Chat message received", {
         callId,
         businessId,
+        userId: req.userId,
         requestId: req.requestId,
       });
 
@@ -102,7 +104,7 @@ app.post(
 app.post(
   "/end-call",
   chatRateLimit(config.rateLimitChat),
-  // apiKeyAuth, // disabled for testing
+  jwtAuth,
   validateEndCall,
   async (req, res, next) => {
     try {
