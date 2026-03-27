@@ -7,13 +7,16 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "test": "node --test tests/*.test.js",
     "test-call": "node src/test-call.js",
     "vapi:setup": "node vapi/setup-assistant.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@supabase/supabase-js": "^2.49.4",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "helmet": "^8.1.0"
   }
 }

@@ -112,6 +112,104 @@ const tools = [
       required: [],
     },
   },
+
+  {
+    name: "modify_booking",
+    description:
+      "Modify an existing booking — change dates or room. Finds the booking by guest name or phone, then updates it. Checks availability for new dates before modifying.",
+    input_schema: {
+      type: "object",
+      properties: {
+        guest_name: {
+          type: "string",
+          description: "Name of the guest whose booking to modify",
+        },
+        guest_phone: {
+          type: "string",
+          description: "Phone number used for the booking",
+        },
+        new_check_in: {
+          type: "string",
+          description: "New check-in date YYYY-MM-DD (optional if only changing room)",
+        },
+        new_check_out: {
+          type: "string",
+          description: "New check-out date YYYY-MM-DD (optional if only changing room)",
+        },
+        new_resource_id: {
+          type: "string",
+          description: "UUID of the new room (optional if only changing dates)",
+        },
+      },
+      required: [],
+    },
+  },
+
+  {
+    name: "get_business_info",
+    description:
+      "Get information about the business to answer guest questions about amenities, policies, directions, contact info, hours, parking, dining, etc. Use when the caller asks about the property.",
+    input_schema: {
+      type: "object",
+      properties: {
+        question_type: {
+          type: "string",
+          enum: [
+            "amenities",
+            "policies",
+            "directions",
+            "contact",
+            "hours",
+            "parking",
+            "dining",
+          ],
+          description: "The type of information the caller is asking about",
+        },
+      },
+      required: ["question_type"],
+    },
+  },
+
+  {
+    name: "transfer_to_human",
+    description:
+      "Transfer the call to a human staff member. Use when the caller explicitly requests a human, when you cannot resolve their issue, or for complaints that need manager attention.",
+    input_schema: {
+      type: "object",
+      properties: {
+        reason: {
+          type: "string",
+          description: "Why the transfer is needed",
+        },
+        priority: {
+          type: "string",
+          enum: ["normal", "urgent"],
+          description: "Priority level — use urgent for complaints or time-sensitive issues",
+        },
+      },
+      required: ["reason"],
+    },
+  },
+
+  {
+    name: "send_confirmation",
+    description:
+      "Send a booking confirmation via SMS to the guest's phone number. Use after a successful booking when the caller provides their phone number, or when they ask for a confirmation text.",
+    input_schema: {
+      type: "object",
+      properties: {
+        booking_id: {
+          type: "string",
+          description: "The booking ID to send confirmation for",
+        },
+        phone_number: {
+          type: "string",
+          description: "Phone number to send the SMS to",
+        },
+      },
+      required: ["booking_id", "phone_number"],
+    },
+  },
 ];
 
 export default tools;
