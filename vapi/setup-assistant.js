@@ -33,10 +33,11 @@ console.log(`   Tool webhook URL: ${TOOL_SERVER_URL}\n`);
 const assistantConfig = {
   name: "AI Receptionist - Grand Hotel Demo",
 
-  // VOICE — what the AI sounds like
+  // VOICE — what the AI sounds like (multilingual enabled)
   voice: {
     provider: "11labs",
     voiceId: "21m00Tcm4TlvDq8ikWAM", // "Rachel" — professional female voice
+    model: "eleven_multilingual_v2",  // enables Albanian + 28 other languages
     stability: 0.5,
     similarityBoost: 0.75,
   },
@@ -80,6 +81,15 @@ BOOKING FLOW:
 3. Get name: "May I have your name for the reservation?"
 4. Confirm: "[Name], I've got you in [Room] for [dates], [total]. Shall I confirm?"
 5. Done: "You're all set!" — If unavailable, immediately find_next_available and suggest.
+
+LANGUAGE DETECTION (BILINGUAL: ENGLISH + ALBANIAN):
+- Detect the caller's language from their first sentence.
+- Albanian caller -> respond ENTIRELY in natural, conversational Albanian (Shqip) for the whole call.
+- English caller -> respond in English for the whole call.
+- If unsure -> start English, switch if they reply in Albanian.
+- Albanian greeting: "Përshëndetje! Faleminderit që na telefonuat Grand Hotel Demo. Si mund t'ju ndihmoj sot?"
+- Dates in Albanian: "të premten, 28 Mars" — Prices: "tetëdhjetë e nëntë dollarë për natë"
+- NEVER mix languages in one sentence. Tool calls stay English internally.
 
 HARD RULES:
 1. ALWAYS check tools for availability. Never guess.
@@ -225,18 +235,18 @@ HARD RULES:
 
   // FIRST MESSAGE — what the AI says when it picks up
   firstMessage:
-    "Hello! Thank you for calling Grand Hotel Demo. How can I assist you today?",
+    "Hello! Thank you for calling Grand Hotel Demo. How can I assist you today? — Përshëndetje! Si mund t'ju ndihmoj?",
 
   // CALL SETTINGS
   endCallMessage: "Thank you for calling Grand Hotel Demo. Have a wonderful day! Goodbye.",
   silenceTimeoutSeconds: 30,
   maxDurationSeconds: 600, // 10 min max call
   
-  // TRANSCRIPTION
+  // TRANSCRIPTION — multi-language auto-detection (English + Albanian)
   transcriber: {
     provider: "deepgram",
     model: "nova-2",
-    language: "en",
+    language: "multi",  // auto-detects caller's language
   },
 };
 
