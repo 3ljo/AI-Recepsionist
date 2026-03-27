@@ -359,6 +359,20 @@ HARD RULES
             model: "claude-sonnet-4-20250514",
             messages: [{ role: "system", content: systemPrompt }],
           },
+          voice: {
+            provider: "11labs",
+            voiceId: "21m00Tcm4TlvDq8ikWAM",
+            model: "eleven_multilingual_v2",
+            stability: 0.5,
+            similarityBoost: 0.75,
+          },
+          transcriber: {
+            provider: "deepgram",
+            model: "nova-2",
+            language: "multi",
+          },
+          firstMessage:
+            "Hello! Thank you for calling Grand Hotel Demo. How can I assist you today? — Përshëndetje! Si mund t'ju ndihmoj?",
         }),
       }
     );
