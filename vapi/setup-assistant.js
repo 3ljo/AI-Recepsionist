@@ -33,13 +33,11 @@ console.log(`   Tool webhook URL: ${TOOL_SERVER_URL}\n`);
 const assistantConfig = {
   name: "AI Receptionist - Grand Hotel Demo",
 
-  // VOICE — what the AI sounds like (multilingual enabled)
+  // VOICE — OpenAI TTS (multilingual, handles Albanian well)
   voice: {
-    provider: "11labs",
-    voiceId: "21m00Tcm4TlvDq8ikWAM", // "Rachel" — professional female voice
-    model: "eleven_multilingual_v2",  // enables Albanian + 28 other languages
-    stability: 0.5,
-    similarityBoost: 0.75,
+    provider: "openai",
+    voiceId: "nova",       // natural female voice, best for multilingual
+    model: "tts-1",
   },
 
   // MODEL — the AI brain
@@ -242,11 +240,12 @@ HARD RULES:
   silenceTimeoutSeconds: 30,
   maxDurationSeconds: 600, // 10 min max call
   
-  // TRANSCRIPTION — multi-language auto-detection (English + Albanian)
+  // TRANSCRIPTION — Gladia (Whisper-based, supports Albanian sq, free 10h/month)
+  // No billing required. languageBehaviour: "automatic multiple languages" = auto-detects Albanian vs English
   transcriber: {
-    provider: "deepgram",
-    model: "nova-2",
-    language: "multi",  // auto-detects caller's language
+    provider: "gladia",
+    model: "solaria-1",          // Gladia's latest model, best accuracy
+    languageBehaviour: "automatic multiple languages",
   },
 };
 
