@@ -1,19 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   BedDouble,
   Calendar,
-  User,
+  Users,
   DoorOpen,
-  Ban,
   RefreshCw,
-  ChevronDown,
-  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  DollarSign,
+  User,
+  Phone,
 } from "lucide-react";
 
 const BUSINESS_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const DAYS_TO_SHOW = 14;
 
 interface Room {
   id: string;
@@ -41,13 +45,57 @@ interface Booking {
   resources?: { name: string } | null;
 }
 
+// ── helpers ──────────────────────────────────────────────
+function toDateStr(d: Date) {
+  return d.toISOString().split("T")[0];
+}
+function addDays(d: Date, n: number) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+function daysBetween(a: string, b: string) {
+  return Math.ceil(
+    (new Date(b).getTime() - new Date(a).getTime()) / 86_400_000
+  );
+}
+function shortDay(d: Date) {
+  return d.toLocaleDateString("en-US", { weekday: "short" });
+}
+function shortDate(d: Date) {
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function isToday(d: Date) {
+  return toDateStr(d) === toDateStr(new Date());
+}
+function isWeekend(d: Date) {
+  const day = d.getDay();
+  return day === 0 || day === 6;
+}
+
+// ── color palette for booking bars ───────────────────────
+const BOOKING_COLORS = [
+  { bg: "bg-blue-500/20", border: "border-blue-500/40", text: "text-blue-400", dot: "bg-blue-400" },
+  { bg: "bg-violet-500/20", border: "border-violet-500/40", text: "text-violet-400", dot: "bg-violet-400" },
+  { bg: "bg-emerald-500/20", border: "border-emerald-500/40", text: "text-emerald-400", dot: "bg-emerald-400" },
+  { bg: "bg-amber-500/20", border: "border-amber-500/40", text: "text-amber-400", dot: "bg-amber-400" },
+  { bg: "bg-rose-500/20", border: "border-rose-500/40", text: "text-rose-400", dot: "bg-rose-400" },
+  { bg: "bg-cyan-500/20", border: "border-cyan-500/40", text: "text-cyan-400", dot: "bg-cyan-400" },
+];
+function bookingColor(i: number) {
+  return BOOKING_COLORS[i % BOOKING_COLORS.length];
+}
+
+// ═════════════════════════════════════════════════════════
 export function BookingsPanel() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedRoom, setExpandedRoom] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
+  // ── data fetching ────────────────────────────────────
   const fetchData = useCallback(async () => {
     const [roomsRes, bookingsRes] = await Promise.all([
       supabase
@@ -64,7 +112,6 @@ export function BookingsPanel() {
         .gte("check_out", new Date().toISOString().split("T")[0])
         .order("check_in", { ascending: true }),
     ]);
-
     if (roomsRes.data) setRooms(roomsRes.data);
     if (bookingsRes.data) setBookings(bookingsRes.data);
     setLoading(false);
@@ -72,27 +119,15 @@ export function BookingsPanel() {
 
   useEffect(() => {
     fetchData();
-
-    // Real-time subscription for bookings changes
     const channel = supabase
       .channel("bookings-realtime")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bookings",
-          filter: `business_id=eq.${BUSINESS_ID}`,
-        },
-        () => {
-          fetchData();
-        }
+        { event: "*", schema: "public", table: "bookings", filter: `business_id=eq.${BUSINESS_ID}` },
+        () => fetchData()
       )
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
 
   const handleRefresh = async () => {
@@ -101,25 +136,26 @@ export function BookingsPanel() {
     setTimeout(() => setRefreshing(false), 500);
   };
 
-  const getBookingsForRoom = (roomId: string) =>
-    bookings.filter((b) => b.resource_id === roomId);
+  // ── derived data ─────────────────────────────────────
+  const startDate = useMemo(() => addDays(new Date(), weekOffset * 7), [weekOffset]);
+  const days = useMemo(
+    () => Array.from({ length: DAYS_TO_SHOW }, (_, i) => addDays(startDate, i)),
+    [startDate]
+  );
 
-  const isRoomBookedToday = (roomId: string) => {
-    const today = new Date().toISOString().split("T")[0];
-    return bookings.some(
-      (b) => b.resource_id === roomId && b.check_in <= today && b.check_out > today
-    );
-  };
+  const todayStr = toDateStr(new Date());
+  const bookedToday = rooms.filter((r) =>
+    bookings.some((b) => b.resource_id === r.id && b.check_in <= todayStr && b.check_out > todayStr)
+  ).length;
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr + "T00:00:00");
-    return d.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-  };
+  // bookings that overlap the visible range
+  const endDateStr = toDateStr(addDays(startDate, DAYS_TO_SHOW));
+  const startDateStr = toDateStr(startDate);
+  const visibleBookings = bookings.filter(
+    (b) => b.check_in < endDateStr && b.check_out > startDateStr
+  );
 
+  // ── loading ──────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -131,230 +167,319 @@ export function BookingsPanel() {
     );
   }
 
-  const totalRooms = rooms.length;
-  const bookedToday = rooms.filter((r) => isRoomBookedToday(r.id)).length;
-  const availableToday = totalRooms - bookedToday;
-  const upcomingBookings = bookings.length;
-
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
-      {/* Header stats */}
-      <div className="p-4 sm:p-6 border-b border-edge">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-on-surface">
-            Rooms & Bookings
-          </h3>
-          <button
-            onClick={handleRefresh}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-surface-3 text-on-surface-3 transition-colors"
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-            />
-          </button>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* ── top bar: stats + nav ─────────────────────── */}
+      <div className="shrink-0 p-4 sm:p-5 border-b border-edge bg-surface-2/40 backdrop-blur-sm">
+        {/* Stats row */}
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <Stat icon={<BedDouble className="w-3.5 h-3.5" />} value={rooms.length} label="Rooms" />
+          <Stat icon={<DoorOpen className="w-3.5 h-3.5" />} value={rooms.length - bookedToday} label="Free today" accent="emerald" />
+          <Stat icon={<Calendar className="w-3.5 h-3.5" />} value={bookings.length} label="Bookings" accent="amber" />
+
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              onClick={handleRefresh}
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-surface-3 text-on-surface-3 transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <StatCard
-            label="Total Rooms"
-            value={totalRooms}
-            icon={<BedDouble className="w-4 h-4" />}
-            color="blue"
-          />
-          <StatCard
-            label="Available Today"
-            value={availableToday}
-            icon={<DoorOpen className="w-4 h-4" />}
-            color="emerald"
-          />
-          <StatCard
-            label="Upcoming"
-            value={upcomingBookings}
-            icon={<Calendar className="w-4 h-4" />}
-            color="amber"
-          />
+        {/* Calendar nav */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setWeekOffset((w) => w - 1)}
+            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-surface-3 text-on-surface-3 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-on-surface">
+              {shortDate(days[0])} &mdash; {shortDate(days[days.length - 1])}
+            </span>
+            {weekOffset !== 0 && (
+              <button
+                onClick={() => setWeekOffset(0)}
+                className="text-xs text-blue-500 hover:text-blue-400 transition-colors font-medium"
+              >
+                Today
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => setWeekOffset((w) => w + 1)}
+            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-surface-3 text-on-surface-3 transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Room list */}
-      <div className="flex-1 p-4 sm:p-6 space-y-3">
-        <h4 className="text-xs font-medium text-on-surface-3 uppercase tracking-wider mb-3">
-          Room Status
-        </h4>
-
-        {rooms.length === 0 ? (
-          <div className="text-center py-12">
-            <BedDouble className="w-10 h-10 text-on-surface-3 mx-auto mb-3" />
-            <p className="text-sm text-on-surface-3">No rooms found</p>
-            <p className="text-xs text-on-surface-3 mt-1">
-              Check that your Supabase &quot;resources&quot; table has data
-            </p>
-          </div>
-        ) : (
-          rooms.map((room) => {
-            const roomBookings = getBookingsForRoom(room.id);
-            const bookedNow = isRoomBookedToday(room.id);
-            const isExpanded = expandedRoom === room.id;
-
-            return (
-              <div
-                key={room.id}
-                className="rounded-xl border border-edge bg-surface-2/60 overflow-hidden transition-colors"
-              >
-                {/* Room header */}
-                <button
-                  onClick={() =>
-                    setExpandedRoom(isExpanded ? null : room.id)
-                  }
-                  className="w-full flex items-center justify-between p-3 sm:p-4 hover:bg-surface-3/50 transition-colors text-left"
+      {/* ── calendar grid ────────────────────────────── */}
+      <div className="flex-1 overflow-auto">
+        <div className="min-w-[700px]">
+          {/* Day headers */}
+          <div className="sticky top-0 z-10 bg-surface/95 backdrop-blur-sm border-b border-edge flex">
+            {/* Room label column */}
+            <div className="w-40 sm:w-48 shrink-0 p-2 pl-4 text-xs font-medium text-on-surface-3 uppercase tracking-wider flex items-center">
+              Room
+            </div>
+            {/* Day columns */}
+            {days.map((d) => {
+              const today = isToday(d);
+              const weekend = isWeekend(d);
+              return (
+                <div
+                  key={toDateStr(d)}
+                  className={`flex-1 min-w-[52px] p-1.5 text-center border-l border-edge/50 ${
+                    weekend ? "bg-surface-3/30" : ""
+                  }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                        bookedNow
-                          ? "bg-red-500 animate-pulse"
-                          : "bg-emerald-500"
-                      }`}
-                    />
+                  <p className={`text-[10px] uppercase tracking-wider ${today ? "text-blue-500 font-semibold" : "text-on-surface-3"}`}>
+                    {shortDay(d)}
+                  </p>
+                  <p className={`text-xs font-medium mt-0.5 ${today ? "text-blue-500" : "text-on-surface-2"}`}>
+                    {d.getDate()}
+                  </p>
+                  {today && <div className="w-1 h-1 rounded-full bg-blue-500 mx-auto mt-0.5" />}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Room rows */}
+          {rooms.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <BedDouble className="w-10 h-10 text-on-surface-3 mb-3" />
+              <p className="text-sm text-on-surface-3">No rooms found</p>
+              <p className="text-xs text-on-surface-3 mt-1">
+                Check your Supabase &quot;resources&quot; table
+              </p>
+            </div>
+          ) : (
+            rooms.map((room, roomIdx) => {
+              const roomBookings = visibleBookings.filter((b) => b.resource_id === room.id);
+              const occupied = bookings.some(
+                (b) => b.resource_id === room.id && b.check_in <= todayStr && b.check_out > todayStr
+              );
+
+              return (
+                <div key={room.id} className="flex border-b border-edge/50 group hover:bg-surface-2/30 transition-colors">
+                  {/* Room info */}
+                  <div className="w-40 sm:w-48 shrink-0 p-3 pl-4 flex items-center gap-2.5">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${occupied ? "bg-red-400" : "bg-emerald-400"}`} />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-on-surface truncate">
-                        {room.name}
-                      </p>
-                      <p className="text-xs text-on-surface-3">
-                        Up to {room.capacity} guests &middot; ${room.price_per_unit}/{room.price_unit}
+                      <p className="text-sm font-medium text-on-surface truncate">{room.name}</p>
+                      <p className="text-[11px] text-on-surface-3 truncate">
+                        {room.capacity}p &middot; ${room.price_per_unit}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        bookedNow
-                          ? "bg-red-500/10 text-red-500"
-                          : "bg-emerald-500/10 text-emerald-500"
-                      }`}
-                    >
-                      {bookedNow ? "Occupied" : "Available"}
-                    </span>
-                    {roomBookings.length > 0 && (
-                      <span className="text-xs text-on-surface-3">
-                        {roomBookings.length}
-                      </span>
-                    )}
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-on-surface-3" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-on-surface-3" />
-                    )}
-                  </div>
-                </button>
+                  {/* Day cells with booking bars */}
+                  <div className="flex flex-1 relative" style={{ minHeight: 52 }}>
+                    {/* Grid lines */}
+                    {days.map((d) => (
+                      <div
+                        key={toDateStr(d)}
+                        className={`flex-1 min-w-[52px] border-l border-edge/30 ${
+                          isWeekend(d) ? "bg-surface-3/15" : ""
+                        } ${isToday(d) ? "bg-blue-500/5" : ""}`}
+                      />
+                    ))}
 
-                {/* Expanded bookings */}
-                {isExpanded && (
-                  <div className="border-t border-edge px-3 sm:px-4 py-3 space-y-2 bg-surface-3/30">
-                    {room.description && (
-                      <p className="text-xs text-on-surface-3 mb-2">
-                        {room.description}
-                      </p>
-                    )}
+                    {/* Booking bars (absolute positioned) */}
+                    {roomBookings.map((booking, bIdx) => {
+                      const bStart = new Date(booking.check_in + "T00:00:00");
+                      const bEnd = new Date(booking.check_out + "T00:00:00");
+                      const gridStart = startDate;
+                      const gridEnd = addDays(startDate, DAYS_TO_SHOW);
 
-                    {roomBookings.length === 0 ? (
-                      <p className="text-xs text-on-surface-3 py-2">
-                        No upcoming bookings for this room.
-                      </p>
-                    ) : (
-                      roomBookings.map((booking) => (
-                        <div
+                      const visStart = bStart < gridStart ? gridStart : bStart;
+                      const visEnd = bEnd > gridEnd ? gridEnd : bEnd;
+
+                      const offsetDays = daysBetween(toDateStr(gridStart), toDateStr(visStart));
+                      const spanDays = daysBetween(toDateStr(visStart), toDateStr(visEnd));
+
+                      if (spanDays <= 0) return null;
+
+                      const leftPct = (offsetDays / DAYS_TO_SHOW) * 100;
+                      const widthPct = (spanDays / DAYS_TO_SHOW) * 100;
+                      const clr = bookingColor(roomIdx + bIdx);
+                      const clipped_left = bStart < gridStart;
+                      const clipped_right = bEnd > gridEnd;
+
+                      return (
+                        <button
                           key={booking.id}
-                          className="flex items-start gap-3 p-2.5 rounded-lg bg-surface-2/80 border border-edge"
+                          onClick={() => setSelectedBooking(selectedBooking?.id === booking.id ? null : booking)}
+                          className={`absolute top-1.5 bottom-1.5 ${clr.bg} border ${clr.border} flex items-center gap-1.5 px-2 cursor-pointer hover:brightness-125 transition-all ${
+                            clipped_left ? "rounded-l-none" : "rounded-l-lg"
+                          } ${clipped_right ? "rounded-r-none" : "rounded-r-lg"} ${
+                            selectedBooking?.id === booking.id ? "ring-2 ring-blue-500/50 brightness-125" : ""
+                          }`}
+                          style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                         >
-                          <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                            <User className="w-3.5 h-3.5 text-blue-500" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-on-surface truncate">
-                              {booking.guest_name}
-                            </p>
-                            <p className="text-xs text-on-surface-3">
-                              {formatDate(booking.check_in)} &rarr;{" "}
-                              {formatDate(booking.check_out)}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              {booking.total_price && (
-                                <span className="text-xs text-on-surface-2">
-                                  ${booking.total_price}
-                                </span>
-                              )}
-                              <span className="text-xs text-on-surface-3">
-                                {booking.guest_count} guest{booking.guest_count !== 1 ? "s" : ""}
-                              </span>
-                              <span className="text-xs text-on-surface-3 capitalize">
-                                via {booking.booked_via?.replace("_", " ")}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
+                          <span className={`text-[11px] font-medium ${clr.text} truncate`}>
+                            {booking.guest_name}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-            );
-          })
-        )}
-
-        {/* Recent cancelled bookings */}
-        {bookings.length > 0 && (
-          <div className="mt-6">
-            <h4 className="text-xs font-medium text-on-surface-3 uppercase tracking-wider mb-3">
-              Active Bookings Summary
-            </h4>
-            <div className="space-y-1.5">
-              {bookings.slice(0, 10).map((b) => (
-                <div
-                  key={b.id}
-                  className="flex items-center justify-between py-1.5 px-2 text-xs"
-                >
-                  <span className="text-on-surface-2 truncate mr-2">
-                    {b.guest_name} &middot; {b.resources?.name}
-                  </span>
-                  <span className="text-on-surface-3 shrink-0">
-                    {formatDate(b.check_in)}
-                  </span>
                 </div>
-              ))}
-            </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ── booking detail drawer ────────────────────── */}
+      {selectedBooking && (
+        <BookingDetail
+          booking={selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════
+// Stat pill
+// ═════════════════════════════════════════════════════════
+function Stat({
+  icon,
+  value,
+  label,
+  accent = "blue",
+}: {
+  icon: React.ReactNode;
+  value: number;
+  label: string;
+  accent?: "blue" | "emerald" | "amber";
+}) {
+  const ring = {
+    blue: "border-blue-500/20",
+    emerald: "border-emerald-500/20",
+    amber: "border-amber-500/20",
+  }[accent];
+  const iconClr = {
+    blue: "text-blue-500",
+    emerald: "text-emerald-500",
+    amber: "text-amber-500",
+  }[accent];
+
+  return (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${ring} bg-surface-3/40`}>
+      <span className={iconClr}>{icon}</span>
+      <span className="text-sm font-semibold text-on-surface tabular-nums">{value}</span>
+      <span className="text-xs text-on-surface-3">{label}</span>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════
+// Booking detail card (slides up from bottom)
+// ═════════════════════════════════════════════════════════
+function BookingDetail({
+  booking,
+  onClose,
+}: {
+  booking: Booking;
+  onClose: () => void;
+}) {
+  const nights = daysBetween(booking.check_in, booking.check_out);
+  const checkIn = new Date(booking.check_in + "T00:00:00");
+  const checkOut = new Date(booking.check_out + "T00:00:00");
+
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+  return (
+    <div className="shrink-0 border-t border-edge bg-surface-2/80 backdrop-blur-xl animate-slide-up">
+      <div className="p-4 sm:p-5">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="text-base font-semibold text-on-surface">
+              {booking.guest_name}
+            </h4>
+            <p className="text-xs text-on-surface-3 mt-0.5">
+              {booking.resources?.name} &middot; Booked via {booking.booked_via?.replace("_", " ")}
+            </p>
           </div>
-        )}
+          <button
+            onClick={onClose}
+            className="text-xs text-on-surface-3 hover:text-on-surface transition-colors px-2 py-1 rounded-lg hover:bg-surface-3"
+          >
+            Close
+          </button>
+        </div>
+
+        {/* Info grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <DetailCell
+            icon={<Calendar className="w-3.5 h-3.5 text-blue-500" />}
+            label="Check-in"
+            value={fmt(checkIn)}
+          />
+          <DetailCell
+            icon={<Calendar className="w-3.5 h-3.5 text-rose-500" />}
+            label="Check-out"
+            value={fmt(checkOut)}
+          />
+          <DetailCell
+            icon={<Clock className="w-3.5 h-3.5 text-violet-500" />}
+            label="Duration"
+            value={`${nights} night${nights !== 1 ? "s" : ""}`}
+          />
+          <DetailCell
+            icon={<DollarSign className="w-3.5 h-3.5 text-emerald-500" />}
+            label="Total"
+            value={booking.total_price ? `$${booking.total_price}` : "—"}
+          />
+          <DetailCell
+            icon={<Users className="w-3.5 h-3.5 text-amber-500" />}
+            label="Guests"
+            value={`${booking.guest_count}`}
+          />
+          <DetailCell
+            icon={<Phone className="w-3.5 h-3.5 text-cyan-500" />}
+            label="Phone"
+            value={booking.guest_phone || "—"}
+          />
+        </div>
       </div>
     </div>
   );
 }
 
-function StatCard({
+function DetailCell({
+  icon,
   label,
   value,
-  icon,
-  color,
 }: {
-  label: string;
-  value: number;
   icon: React.ReactNode;
-  color: "blue" | "emerald" | "amber";
+  label: string;
+  value: string;
 }) {
-  const colors = {
-    blue: "text-blue-500 bg-blue-500/10",
-    emerald: "text-emerald-500 bg-emerald-500/10",
-    amber: "text-amber-500 bg-amber-500/10",
-  };
-
   return (
-    <div className="rounded-xl bg-surface-3/50 p-3">
-      <div className={`w-7 h-7 rounded-lg ${colors[color]} flex items-center justify-center mb-2`}>
-        {icon}
+    <div className="flex items-start gap-2 p-2.5 rounded-xl bg-surface-3/40">
+      <div className="mt-0.5">{icon}</div>
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-wider text-on-surface-3">{label}</p>
+        <p className="text-xs font-medium text-on-surface truncate mt-0.5">{value}</p>
       </div>
-      <p className="text-lg font-semibold text-on-surface tabular-nums">{value}</p>
-      <p className="text-xs text-on-surface-3">{label}</p>
     </div>
   );
 }
