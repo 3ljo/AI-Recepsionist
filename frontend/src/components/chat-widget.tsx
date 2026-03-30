@@ -12,6 +12,7 @@ import {
   Info,
   Sparkles,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { sendMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { AIOrb } from "./ui/ai-orb";
@@ -348,7 +349,21 @@ export function ChatWidget() {
                             : "bg-[var(--msg-ai-bg)] border border-[var(--panel-border)] text-fg rounded-bl-md backdrop-blur-md"
                         )}
                       >
-                        {msg.content}
+                        {msg.role === "assistant" ? (
+                          <ReactMarkdown
+                            components={{
+                              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                              strong: ({ children }) => <strong className="font-semibold text-[var(--accent-bright)]">{children}</strong>,
+                              ul: ({ children }) => <ul className="list-disc list-inside mb-2 last:mb-0 space-y-1">{children}</ul>,
+                              ol: ({ children }) => <ol className="list-decimal list-inside mb-2 last:mb-0 space-y-1">{children}</ol>,
+                              li: ({ children }) => <li>{children}</li>,
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        ) : (
+                          msg.content
+                        )}
                       </div>
 
                       {/* User Avatar */}
