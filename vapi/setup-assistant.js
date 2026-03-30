@@ -33,11 +33,10 @@ console.log(`   Tool webhook URL: ${TOOL_SERVER_URL}\n`);
 const assistantConfig = {
   name: "AI Receptionist - Grand Hotel Demo",
 
-  // VOICE — OpenAI TTS (multilingual, handles Albanian well)
+  // VOICE — Azure TTS (native Albanian voice)
   voice: {
-    provider: "openai",
-    voiceId: "nova",       // natural female voice, best for multilingual
-    model: "tts-1",
+    provider: "azure",
+    voiceId: "sq-AL-AnilaNeural",
   },
 
   // MODEL — the AI brain
@@ -240,12 +239,10 @@ HARD RULES:
   silenceTimeoutSeconds: 30,
   maxDurationSeconds: 600, // 10 min max call
   
-  // TRANSCRIPTION — Gladia (Whisper-based, supports Albanian sq, free 10h/month)
-  // No billing required. languageBehaviour: "automatic multiple languages" = auto-detects Albanian vs English
+  // TRANSCRIPTION — Azure Speech (native Albanian sq-AL support)
   transcriber: {
-    provider: "gladia",
-    model: "solaria-1",          // Gladia's latest model, best accuracy
-    languageBehaviour: "automatic multiple languages",
+    provider: "azure",
+    language: "sq-AL",
   },
 };
 

@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ChatWidget } from "@/components/chat-widget";
 import { VoiceWidget } from "@/components/voice-widget";
+import { BookingsPanel } from "@/components/bookings-panel";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   MessageSquare,
   Mic,
+  BedDouble,
   LogOut,
   Activity,
   Wifi,
@@ -20,7 +22,7 @@ import {
 import { getStatus } from "@/lib/api";
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<"chat" | "voice">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "voice" | "bookings">("chat");
   const [user, setUser] = useState<any>(null);
   const [serverStatus, setServerStatus] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,7 +55,7 @@ export default function DashboardPage() {
     router.replace("/login");
   };
 
-  const switchTab = (tab: "chat" | "voice") => {
+  const switchTab = (tab: "chat" | "voice" | "bookings") => {
     setActiveTab(tab);
     setSidebarOpen(false);
   };
@@ -125,6 +127,12 @@ export default function DashboardPage() {
             onClick={() => switchTab("voice")}
             icon={<Mic className="w-4 h-4" />}
             label="Voice Call"
+          />
+          <NavButton
+            active={activeTab === "bookings"}
+            onClick={() => switchTab("bookings")}
+            icon={<BedDouble className="w-4 h-4" />}
+            label="Rooms & Bookings"
           />
         </nav>
 
@@ -201,13 +209,11 @@ export default function DashboardPage() {
               <Menu className="w-5 h-5" />
             </button>
 
-            {activeTab === "chat" ? (
-              <MessageSquare className="w-4 h-4 text-blue-500" />
-            ) : (
-              <Mic className="w-4 h-4 text-blue-500" />
-            )}
+            {activeTab === "chat" && <MessageSquare className="w-4 h-4 text-blue-500" />}
+            {activeTab === "voice" && <Mic className="w-4 h-4 text-blue-500" />}
+            {activeTab === "bookings" && <BedDouble className="w-4 h-4 text-blue-500" />}
             <h2 className="text-sm font-medium text-on-surface">
-              {activeTab === "chat" ? "Chat with AI" : "Voice Call"}
+              {activeTab === "chat" ? "Chat with AI" : activeTab === "voice" ? "Voice Call" : "Rooms & Bookings"}
             </h2>
           </div>
 
@@ -227,7 +233,9 @@ export default function DashboardPage() {
 
         {/* Content area */}
         <div className="flex-1 overflow-hidden">
-          {activeTab === "chat" ? <ChatWidget /> : <VoiceWidget />}
+          {activeTab === "chat" && <ChatWidget />}
+          {activeTab === "voice" && <VoiceWidget />}
+          {activeTab === "bookings" && <BookingsPanel />}
         </div>
       </main>
     </div>

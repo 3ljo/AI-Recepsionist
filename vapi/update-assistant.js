@@ -11,14 +11,12 @@ if (!VAPI_API_KEY || !ASSISTANT_ID) {
 
 const patch = {
   voice: {
-    provider: "openai",
-    voiceId: "alloy",
-    model: "tts-1",
+    provider: "azure",
+    voiceId: "sq-AL-AnilaNeural",
   },
   transcriber: {
-    provider: "gladia",
-    model: "fast",
-    language: "sq",
+    provider: "azure",
+    language: "sq-AL",
   },
 };
 

@@ -360,16 +360,12 @@ HARD RULES
             messages: [{ role: "system", content: systemPrompt }],
           },
           voice: {
-            provider: "11labs",
-            voiceId: "21m00Tcm4TlvDq8ikWAM",
-            model: "eleven_multilingual_v2",
-            stability: 0.5,
-            similarityBoost: 0.75,
+            provider: "azure",
+            voiceId: "sq-AL-AnilaNeural",
           },
           transcriber: {
-            provider: "deepgram",
-            model: "nova-2",
-            language: "multi",
+            provider: "azure",
+            language: "sq-AL",
           },
           firstMessage:
             "Hello! Thank you for calling Grand Hotel Demo. How can I assist you today? — Përshëndetje! Si mund t'ju ndihmoj?",
