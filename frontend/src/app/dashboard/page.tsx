@@ -8,7 +8,6 @@ import { VoiceWidget } from "@/components/voice-widget";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
-  Phone,
   MessageSquare,
   Mic,
   LogOut,
@@ -95,9 +94,7 @@ export default function DashboardPage() {
         <div className="p-5 border-b border-edge">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20">
-                <Phone className="w-4 h-4 text-white" />
-              </div>
+              <img src="/logo.png" alt="AI Receptionist" className="w-9 h-9 rounded-xl object-cover shadow-md shadow-blue-500/20" />
               <div>
                 <h1 className="text-sm font-semibold text-on-surface">
                   AI Receptionist

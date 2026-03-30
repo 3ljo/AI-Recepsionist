@@ -13,7 +13,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Phone, Sparkles, Shield, Zap, ArrowRight } from "lucide-react";
+import { Sparkles, Shield, Zap, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -65,9 +65,7 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col justify-center p-12 xl:p-16">
           <div className="animate-slide-up">
             <div className="flex items-center gap-3 mb-10">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <Phone className="w-6 h-6 text-white" />
-              </div>
+              <img src="/logo.png" alt="AI Receptionist" className="w-12 h-12 rounded-2xl object-cover shadow-lg shadow-blue-500/30" />
               <h1 className="text-2xl font-bold text-on-surface">
                 AI Receptionist
               </h1>
@@ -112,9 +110,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm animate-slide-up">
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-              <Phone className="w-5 h-5 text-white" />
-            </div>
+            <img src="/logo.png" alt="AI Receptionist" className="w-11 h-11 rounded-2xl object-cover shadow-lg shadow-blue-500/30" />
             <div>
               <h1 className="text-xl font-bold text-on-surface">
                 AI Receptionist
