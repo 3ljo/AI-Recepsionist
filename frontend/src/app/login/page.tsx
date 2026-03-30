@@ -2,18 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Sparkles, Shield, Zap, ArrowRight } from "lucide-react";
+import { AIOrb } from "@/components/ui/ai-orb";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -42,175 +34,163 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
-      {/* Animated gradient background */}
-      <div className="absolute inset-0 animate-gradient" />
-
-      {/* Floating orbs */}
-      <div className="absolute top-[15%] left-[10%] w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-float" />
-      <div
-        className="absolute bottom-[20%] right-[15%] w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-float-delayed"
-      />
-      <div
-        className="absolute top-[60%] left-[50%] w-64 h-64 bg-purple-500/8 rounded-full blur-3xl animate-float"
-        style={{ animationDelay: "2s" }}
-      />
-
-      {/* Theme toggle */}
-      <div className="absolute top-5 right-5 z-50">
-        <ThemeToggle />
-      </div>
-
       {/* Left side — branding */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <div className="relative z-10 flex flex-col justify-center p-12 xl:p-16">
-          <div className="animate-slide-up">
-            <div className="flex items-center gap-3 mb-10">
-              <img src="/logo.png" alt="AI Receptionist" className="w-12 h-12 rounded-2xl object-cover shadow-lg shadow-blue-500/30" />
-              <h1 className="text-2xl font-bold text-on-surface">
-                AI Receptionist
-              </h1>
+        <div className="relative z-10 flex flex-col justify-center p-12 xl:p-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="flex items-center gap-3.5 mb-12">
+              <AIOrb size="sm" state="active" />
+              <div>
+                <h1 className="font-display text-xl font-bold text-fg tracking-tight">
+                  AI Receptionist
+                </h1>
+                <p className="text-xs text-fg-faint font-medium tracking-wider uppercase">
+                  Command Interface
+                </p>
+              </div>
             </div>
 
-            <h2 className="text-4xl xl:text-5xl font-bold text-on-surface mb-5 leading-tight">
+            <h2 className="font-display text-4xl xl:text-5xl font-bold text-fg mb-5 leading-[1.1] tracking-tight">
               Your intelligent
               <br />
-              <span className="gradient-text">front desk</span>
+              <span className="gradient-text-vivid">front desk</span>
             </h2>
-            <p className="text-on-surface-2 text-lg mb-14 max-w-md leading-relaxed">
+            <p className="text-fg-faint text-lg mb-16 max-w-md leading-relaxed">
               AI-powered phone receptionist that handles bookings, answers
               questions, and never takes a day off.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="space-y-5">
-            <Feature
-              icon={<Sparkles className="w-5 h-5" />}
-              title="Natural Conversations"
-              description="Sounds like a real receptionist, not a robot"
-              delay="0.1s"
-            />
-            <Feature
-              icon={<Zap className="w-5 h-5" />}
-              title="Instant Bookings"
-              description="Checks availability and books in seconds"
-              delay="0.2s"
-            />
-            <Feature
-              icon={<Shield className="w-5 h-5" />}
-              title="24/7 Coverage"
-              description="Never miss a call, day or night"
-              delay="0.3s"
-            />
+          <div className="space-y-3">
+            {[
+              { icon: <Sparkles className="w-5 h-5" />, title: "Natural Conversations", desc: "Sounds like a real receptionist" },
+              { icon: <Zap className="w-5 h-5" />, title: "Instant Bookings", desc: "Checks availability and books in seconds" },
+              { icon: <Shield className="w-5 h-5" />, title: "24/7 Coverage", desc: "Never miss a call, day or night" },
+            ].map((feature, i) => (
+              <motion.div
+                key={feature.title}
+                className="flex items-start gap-4 p-4 rounded-2xl hover:bg-[var(--glass-bg)] transition-all duration-300 group border border-transparent hover:border-edge"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 + i * 0.1, duration: 0.4 }}
+              >
+                <div className="w-11 h-11 rounded-xl bg-accent/10 border border-accent/15 flex items-center justify-center text-accent-bright shrink-0 group-hover:shadow-[0_0_20px_var(--accent-glow)] transition-all duration-300">
+                  {feature.icon}
+                </div>
+                <div>
+                  <h3 className="text-fg font-medium tracking-tight">
+                    {feature.title}
+                  </h3>
+                  <p className="text-fg-faint text-sm mt-0.5">{feature.desc}</p>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Right side — login form */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-8 relative z-10">
-        <div className="w-full max-w-sm animate-slide-up">
+        <motion.div
+          className="w-full max-w-sm"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
           {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <img src="/logo.png" alt="AI Receptionist" className="w-11 h-11 rounded-2xl object-cover shadow-lg shadow-blue-500/30" />
+          <div className="flex items-center gap-3 mb-10 lg:hidden">
+            <AIOrb size="sm" state="active" />
             <div>
-              <h1 className="text-xl font-bold text-on-surface">
+              <h1 className="font-display text-xl font-bold text-fg tracking-tight">
                 AI Receptionist
               </h1>
-              <p className="text-xs text-on-surface-3">
-                Your intelligent front desk
+              <p className="text-xs text-fg-faint font-medium tracking-wider uppercase">
+                Command Interface
               </p>
             </div>
           </div>
 
-          <Card className="glass border-edge">
-            <CardHeader>
-              <CardTitle className="text-xl">Welcome back</CardTitle>
-              <CardDescription>Sign in to your dashboard</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
-                {error && (
-                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm animate-slide-up">
-                    {error}
-                  </div>
-                )}
+          <div className="glass-panel p-6 sm:p-8">
+            <div className="mb-6">
+              <h2 className="font-display text-xl font-bold text-fg tracking-tight">
+                Welcome back
+              </h2>
+              <p className="text-sm text-fg-faint mt-1">
+                Sign in to your command interface
+              </p>
+            </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-on-surface-2">
-                    Email
-                  </label>
-                  <Input
-                    type="email"
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-on-surface-2">
-                    Password
-                  </label>
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  className="w-full mt-2"
-                  disabled={loading}
+            <form onSubmit={handleLogin} className="space-y-5">
+              {error && (
+                <motion.div
+                  className="p-3.5 rounded-xl bg-danger/10 border border-danger/15 text-danger text-sm flex items-center gap-2"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
                 >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                  ) : (
-                    <>
-                      Sign in
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                  <div className="w-1.5 h-1.5 rounded-full bg-danger shrink-0" />
+                  {error}
+                </motion.div>
+              )}
 
-          <p className="text-center text-xs text-on-surface-3 mt-6">
-            AI Receptionist Platform
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
+              <div>
+                <label className="text-xs font-medium text-fg-faint mb-1.5 block tracking-wide">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="you@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="glass-input w-full px-4 py-3 text-sm"
+                />
+              </div>
 
-function Feature({
-  icon,
-  title,
-  description,
-  delay,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  delay: string;
-}) {
-  return (
-    <div
-      className="flex items-start gap-4 p-4 rounded-2xl transition-all duration-300 hover:bg-surface-2/50 hover:scale-[1.02] group animate-slide-up"
-      style={{ animationDelay: delay }}
-    >
-      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/20 flex items-center justify-center text-blue-500 shrink-0 group-hover:shadow-lg group-hover:shadow-blue-500/10 transition-all duration-300">
-        {icon}
-      </div>
-      <div>
-        <h3 className="text-on-surface font-medium">{title}</h3>
-        <p className="text-on-surface-3 text-sm">{description}</p>
+              <div>
+                <label className="text-xs font-medium text-fg-faint mb-1.5 block tracking-wide">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="glass-input w-full px-4 py-3 text-sm"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="glow-button w-full py-3.5 text-sm flex items-center justify-center gap-2 mt-3 disabled:opacity-40"
+              >
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />
+                    <span>Signing in...</span>
+                  </div>
+                ) : (
+                  <>
+                    Sign in
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mt-8">
+            <div className="w-1.5 h-1.5 rounded-full bg-accent/30" />
+            <p className="text-[11px] text-fg-faint font-medium tracking-widest uppercase">
+              AI Receptionist Platform
+            </p>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

@@ -18,10 +18,15 @@ export default function Home() {
   }, [router]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-surface">
-      <div className="flex flex-col items-center gap-3">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent" />
-        <p className="text-on-surface-3 text-sm animate-fade-in">Loading...</p>
+    <div className="flex items-center justify-center min-h-screen relative">
+      <div className="flex flex-col items-center gap-4 relative z-10">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#7C5CFC]/30 border-t-[#7C5CFC]" />
+          <div className="absolute inset-0 rounded-full bg-[#7C5CFC]/10 blur-xl animate-breathe" />
+        </div>
+        <p className="text-white/30 text-sm animate-fade-in font-medium tracking-wide">
+          Loading...
+        </p>
       </div>
     </div>
   );
