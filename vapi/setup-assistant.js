@@ -33,16 +33,17 @@ console.log(`   Tool webhook URL: ${TOOL_SERVER_URL}\n`);
 const assistantConfig = {
   name: "AI Receptionist - Grand Hotel Demo",
 
-  // VOICE — Azure TTS (native Albanian voice)
+  // VOICE — 11labs Charlotte (warm & conversational)
   voice: {
-    provider: "azure",
-    voiceId: "sq-AL-AnilaNeural",
+    provider: "11labs",
+    voiceId: "XB0fDUnXU5powFXDhCwa",
+    model: "eleven_turbo_v2_5",
   },
 
   // MODEL — the AI brain
   model: {
     provider: "anthropic",
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     messages: [
       {
         role: "system",
@@ -71,47 +72,31 @@ Everything you write is spoken aloud. "2026-03-28" becomes "two zero two six das
 ABSOLUTE RULE: Your text output must contain ZERO digits (0-9), ZERO special characters ($, /, -), and ZERO technical data. Every single character you write will be spoken aloud by TTS.
 
 DATES — write ONLY words, ZERO digits:
-- ENGLISH: "this Friday, March twenty-eighth" — NEVER "2026-03-28" or "March 28"
-- ALBANIAN: "të premten, njëzet e tetë Mars" — NEVER "28 Mars" or "28/03"
+- "this Friday, March twenty-eighth" — NEVER "2026-03-28" or "March 28"
 
 PRICES — write ONLY words:
-- ENGLISH: "eighty-nine dollars a night" — NEVER "$89"
-- ALBANIAN: "tetëdhjetë e nëntë dollarë për natë" — NEVER "89 dollarë"
+- "eighty-nine dollars a night" — NEVER "$89"
+- Totals: "one hundred seventy-eight dollars total" not "$178"
 
-NUMBERS — ALL as words: "dy net" not "2 net", "tre persona" not "3 persona"
-IDs/CODES — NEVER read booking IDs, UUIDs, resource_ids, or codes. Say "Jeni gati!" or "You're all set!"
+NUMBERS — ALL as words: "two nights" not "2 nights", "three guests" not "3 guests"
+IDs/CODES — NEVER read booking IDs, UUIDs, resource_ids, or codes. Say "You're all set!"
 
 TOOL CALL RULE (CRITICAL):
-When you call a function/tool, your spoken text must ONLY be a natural waiting phrase like "Një moment, po kontrolloj..." or "One moment, let me check..."
+When you call a function/tool, your spoken text must ONLY be a natural waiting phrase like "One moment, let me check..."
 NEVER output the tool parameters (dates, numbers, IDs) as text. The caller will hear every character you write.
 WRONG: "2026-03-30 2026-03-31 5" — this gets spoken aloud as gibberish
-RIGHT: "Një moment, po kontrolloj disponueshmërinë..." — natural speech while the tool runs
+RIGHT: "One moment, let me check on that..." — natural speech while the tool runs
 
 BOOKING FLOW:
-1. Caller wants a room -> Say "Një moment, po kontrolloj..." -> call check_availability tool
-2. Available -> Best option: "Lajm i mirë! Kemi [Dhomën] — [highlight], [çmimi] për natë."
-3. Get name: "A mund të më jepni emrin tuaj për rezervimin?"
-4. Confirm details with caller: "[Emri], [Dhomë] për [data], [totali]. A dëshironi ta konfirmoj?"
+1. Caller wants a room -> Say "One moment, let me check..." -> call check_availability tool
+2. Available -> Best option: "Great news! We have [Room] — [highlight], [price] per night."
+3. Get name: "May I have your name for the reservation?"
+4. Confirm details with caller: "[Name], [Room] for [dates], [total]. Shall I confirm?"
 5. Caller says yes -> YOU MUST call the book_room tool. Do NOT just say it's confirmed — actually call book_room!
-6. After book_room returns success: "Jeni gati! Rezervimi juaj është konfirmuar."
+6. After book_room returns success: "You're all set! Your reservation is confirmed."
 7. If book_room fails: tell the caller and offer alternatives.
 
 CRITICAL: Saying "confirmed" without calling book_room means the booking is NOT saved. ALWAYS call book_room before confirming.
-
-LANGUAGE DETECTION (BILINGUAL: ENGLISH + ALBANIAN):
-- Detect the caller's language from their first sentence.
-- Albanian caller -> respond ENTIRELY in natural, conversational Albanian for the whole call.
-- English caller -> respond in English for the whole call.
-- If unsure -> start English, switch if they reply in Albanian.
-- NEVER mix languages in one sentence. Tool calls stay English internally.
-
-ALBANIAN NUMBER WORDS:
-1=një, 2=dy, 3=tre, 4=katër, 5=pesë, 6=gjashtë, 7=shtatë, 8=tetë, 9=nëntë, 10=dhjetë
-20=njëzet, 30=tridhjetë, 40=dyzet, 50=pesëdhjetë, 100=njëqind, 200=dyqind, 300=treqind
-28=njëzet e tetë, 89=tetëdhjetë e nëntë, 101=njëqind e një, 159=njëqind e pesëdhjetë e nëntë
-
-ALBANIAN DAYS: e hënë, e martë, e mërkurë, e enjte, e premte, e shtunë, e diel
-ALBANIAN MONTHS: Janar, Shkurt, Mars, Prill, Maj, Qershor, Korrik, Gusht, Shtator, Tetor, Nëntor, Dhjetor
 
 HARD RULES:
 1. ALWAYS check tools for availability. Never guess.
@@ -254,20 +239,21 @@ HARD RULES:
     ],
   },
 
-  // FIRST MESSAGE — Albanian-first greeting
+  // FIRST MESSAGE
   firstMessage:
-    "Përshëndetje! Faleminderit që na telefonuat Grand Hotel Demo. Si mund t'ju ndihmoj sot?",
+    "Thank you for calling Grand Hotel Demo. How may I help you today?",
 
   // CALL SETTINGS
-  endCallMessage: "Faleminderit që na telefonuat Grand Hotel Demo. Ditën e mirë! Mirupafshim.",
+  endCallMessage: "Thank you for calling Grand Hotel Demo. Have a wonderful day!",
   responseDelaySeconds: 1.5,        // let the AI think before speaking
   silenceTimeoutSeconds: 30,
   maxDurationSeconds: 600,           // 10 min max call
   
-  // TRANSCRIPTION — Azure Speech (native Albanian sq-AL support)
+  // TRANSCRIPTION — Deepgram Nova 2
   transcriber: {
-    provider: "azure",
-    language: "sq-AL",
+    provider: "deepgram",
+    model: "nova-2",
+    language: "en",
   },
 };
 
