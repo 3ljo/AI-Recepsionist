@@ -121,7 +121,7 @@ function trimConversation(history) {
 // ============================================================
 // BUILD SYSTEM PROMPT — personalized per business
 // ============================================================
-async function buildSystemPrompt(businessId) {
+async function buildSystemPrompt(businessId, channel = "voice") {
   const { data: business, error } = await supabase
     .from("businesses")
     .select("*")
@@ -204,7 +204,7 @@ INTELLIGENCE
 - Remember details from earlier in the conversation — don't re-ask
 - If the caller sounds frustrated, acknowledge it: "I understand, let me sort this out right away"
 
-============================
+${channel === "voice" ? `============================
 SPEAKING RULES (CRITICAL — TTS READS EVERY CHARACTER)
 ============================
 Everything you write is spoken aloud by a voice engine. If you write "2026-03-28", it says "two zero two six dash zero three dash two eight." That sounds terrible.
@@ -231,7 +231,39 @@ NEVER output tool parameters (dates, numbers, IDs) as text. The caller will hear
 WRONG: outputting "2026-03-30" or "5" as text — this gets spoken as gibberish
 RIGHT: "One moment, let me check on that..." — natural speech while the tool runs
 
-NAMES: Use once after learning, then sparingly.
+NAMES: Use once after learning, then sparingly.` : `============================
+CHAT FORMATTING RULES
+============================
+You are responding in a TEXT CHAT — not a phone call. Format your responses for easy reading.
+
+FORMATTING:
+- Use short paragraphs. Break up long responses.
+- When listing rooms or options, use a clean list with each option on its own line.
+- Use **bold** for room names and key details.
+- Use normal digits and symbols: "$89/night", "Room 101", "March 28", "2 guests".
+- Keep responses concise — no walls of text.
+
+ROOM/OPTION LISTS — format like this:
+**Room 101** — City view, queen bed
+$89/night
+
+**Room 102** — Garden view, queen bed
+$89/night
+
+**Deluxe Suite 201** — Balcony, king bed
+$159/night
+
+Each option should be clearly separated with a blank line between them.
+
+PRICES: Use dollar signs and digits — "$89/night", "Total: $178 for 2 nights".
+DATES: Use natural readable format — "Friday, March 28" not "2026-03-28".
+NUMBERS: Use digits — "2 nights", "3 guests", "Room 101".
+
+IDs & CODES:
+- Never show booking IDs, UUIDs, or internal codes to the user.
+- After booking: confirm with room name, dates, and total price.
+
+NAMES: Use once after learning, then sparingly.`}
 
 ============================
 CALL FLOW INTELLIGENCE
@@ -306,14 +338,14 @@ OPERATIONAL RULES
 // PROCESS A SINGLE MESSAGE — the core AI loop
 // Handles tool calls recursively until Claude gives a final text response
 // ============================================================
-async function processMessage(businessId, conversationHistory) {
-  const systemPrompt = await buildSystemPrompt(businessId);
+async function processMessage(businessId, conversationHistory, channel = "voice") {
+  const systemPrompt = await buildSystemPrompt(businessId, channel);
 
   // Trim conversation if too long
   conversationHistory = trimConversation(conversationHistory);
 
   const callParams = {
-    model: "claude-sonnet-4-6-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: systemPrompt,
     tools: tools,
@@ -466,7 +498,7 @@ setInterval(async () => {
     .then(() => {});
 }, 5 * 60 * 1000);
 
-export async function handleCall(businessId, callId, userMessage) {
+export async function handleCall(businessId, callId, userMessage, channel = "voice") {
   // Use queue to limit concurrent Claude API calls
   return enqueue(async () => {
     if (!activeConversations.has(callId)) {
@@ -486,7 +518,7 @@ export async function handleCall(businessId, callId, userMessage) {
     });
 
     try {
-      const result = await processMessage(businessId, history);
+      const result = await processMessage(businessId, history, channel);
       activeConversations.set(callId, result.conversationHistory);
 
       // Write-through to Supabase
@@ -497,6 +529,9 @@ export async function handleCall(businessId, callId, userMessage) {
       logger.error("AI processing error", {
         callId,
         error: err.message,
+        stack: err.stack,
+        status: err.status || err.statusCode,
+        type: err.constructor?.name,
       });
       // Return friendly fallback
       return "I'm having a moment — could you please repeat that?";

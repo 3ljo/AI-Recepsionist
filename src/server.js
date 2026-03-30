@@ -81,7 +81,7 @@ app.post(
         requestId: req.requestId,
       });
 
-      const aiResponse = await handleCall(businessId, callId, message);
+      const aiResponse = await handleCall(businessId, callId, message, "chat");
 
       logger.info("Chat response sent", {
         callId,
