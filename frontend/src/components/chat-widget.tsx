@@ -10,7 +10,6 @@ import {
   BedDouble,
   Calendar,
   Info,
-  Sparkles,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { sendMessage } from "@/lib/api";
@@ -408,17 +407,15 @@ export function ChatWidget() {
       </div>
 
       {/* ===== Input Bar ===== */}
-      <div className="relative shrink-0 px-4 sm:px-6 pb-4 pt-3">
+      <div className="relative shrink-0 px-4 sm:px-6 pb-5 pt-2">
         {/* Fade-out gradient above input */}
-        <div className="absolute inset-x-0 -top-8 h-8 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 -top-12 h-12 bg-gradient-to-t from-[var(--bg-base)] to-transparent pointer-events-none" />
 
-        <div className="relative max-w-3xl mx-auto">
-          {/* Glow border effect */}
-          <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-[var(--accent)]/20 via-[var(--accent-bright)]/10 to-[var(--accent)]/20 opacity-0 focus-within:opacity-100 transition-opacity duration-500 blur-[1px] pointer-events-none peer-focus:opacity-100" />
+        <div className="relative max-w-3xl mx-auto group/input">
+          {/* Animated glow ring on focus */}
+          <div className="absolute -inset-[1.5px] rounded-[18px] bg-gradient-to-r from-[var(--accent)]/0 via-[var(--accent-bright)]/0 to-[var(--accent)]/0 group-focus-within/input:from-[var(--accent)]/30 group-focus-within/input:via-[var(--accent-bright)]/20 group-focus-within/input:to-[var(--accent)]/30 transition-all duration-700 blur-[2px] pointer-events-none" />
 
-          <div className="relative flex items-center gap-2.5 bg-[var(--glass-bg)] border border-edge rounded-2xl backdrop-blur-xl px-4 py-2 focus-within:border-[var(--accent)]/30 focus-within:shadow-[0_0_30px_var(--accent-glow-color)] transition-all duration-500">
-            <Sparkles className="w-4 h-4 text-fg-faint shrink-0" />
-
+          <div className="relative flex items-center gap-3 bg-[var(--glass-bg)]/80 border border-white/[0.06] rounded-[16px] backdrop-blur-2xl pl-5 pr-2.5 py-3.5 group-focus-within/input:border-[var(--accent)]/25 group-focus-within/input:bg-[var(--glass-bg)] group-focus-within/input:shadow-[0_0_40px_-8px_var(--accent-glow-color)] transition-all duration-500">
             <input
               ref={inputRef}
               value={input}
@@ -426,22 +423,22 @@ export function ChatWidget() {
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
               disabled={loading}
-              className="glass-input flex-1 bg-transparent border-none outline-none text-sm text-fg placeholder:text-fg-faint disabled:opacity-40 font-[inherit]"
+              className="glass-input flex-1 bg-transparent border-none outline-none text-[15px] text-fg placeholder:text-fg-faint/50 disabled:opacity-40 font-[inherit] py-1"
             />
 
             <motion.button
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.9 }}
               onClick={handleSend}
               disabled={!input.trim() || loading}
               className={cn(
-                "glow-button shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300",
+                "glow-button shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
                 input.trim() && !loading
-                  ? "bg-gradient-to-br from-[var(--accent)] to-[var(--accent-bright)] text-white shadow-lg shadow-[var(--accent-glow-color)] hover:shadow-[var(--glow-btn-shadow)]"
-                  : "bg-[var(--glass-bg)] text-fg-faint cursor-not-allowed"
+                  ? "bg-gradient-to-br from-[var(--accent)] to-[var(--accent-bright)] text-white shadow-lg shadow-[var(--accent-glow-color)]/50 hover:shadow-xl hover:shadow-[var(--accent-glow-color)]/60"
+                  : "bg-white/[0.04] text-fg-faint/40 cursor-not-allowed"
               )}
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-[16px] h-[16px]" />
             </motion.button>
           </div>
         </div>
