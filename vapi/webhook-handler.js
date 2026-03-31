@@ -13,6 +13,72 @@ import { vapiRateLimit } from "../src/middleware/rate-limit.js";
 const DEMO_BUSINESS_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
 // ============================================================
+// VOICE RESULT FORMATTER — strip verbose/technical data
+// so Claude never sees descriptions, IDs, or raw dates
+// that it might accidentally read aloud to the caller.
+// ============================================================
+const monthNames = [
+  "", "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function spokenDate(dateStr) {
+  if (!dateStr) return dateStr;
+  const d = new Date(dateStr + "T00:00:00");
+  const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+  const month = monthNames[d.getMonth() + 1];
+  const day = d.getDate();
+  return `${weekday}, ${month} ${day}`;
+}
+
+function formatResultForVapi(toolName, result) {
+  const r = JSON.parse(JSON.stringify(result));
+
+  if (toolName === "check_availability" && r.rooms) {
+    const count = r.rooms.length;
+    // Strip descriptions, types — only keep what Claude needs
+    r.rooms = r.rooms.map((room) => ({
+      resource_id: room.resource_id,
+      name: room.name,
+      capacity: room.capacity,
+      price: room.price,
+    }));
+    // Add a voice directive so Claude knows how to respond
+    r._voice_directive = `There are ${count} room${count !== 1 ? "s" : ""} available. Tell the caller ONLY: how many rooms are left, how many guests each fits, and the price. Do NOT read room names or descriptions. Example: "We have ${count} rooms available — one fits up to two guests at eighty-nine dollars a night."`;
+  }
+
+  if (toolName === "book_room") {
+    delete r.booking_id;
+    if (r.confirmation) {
+      const conf = r.confirmation;
+      r._voice_directive = `Booking confirmed. Say ONLY: "You're all set, ${conf.guest_name}! Your reservation is confirmed, checking in ${spokenDate(conf.check_in)} and checking out ${spokenDate(conf.check_out)}. We look forward to welcoming you!" — NOTHING else. Do NOT read any IDs, prices, room details, or technical data.`;
+    }
+  }
+
+  if (toolName === "find_next_available") {
+    if (r.options) {
+      r.options = r.options.map((opt) => ({
+        resource_id: opt.resource_id,
+        name: opt.name,
+        date: opt.date,
+        price: opt.price,
+      }));
+    }
+  }
+
+  if (toolName === "cancel_booking" || toolName === "modify_booking") {
+    const data = r.cancelled || r.modified;
+    if (data) {
+      delete data.booking_id;
+      if (data.check_in) data.check_in_spoken = spokenDate(data.check_in);
+      if (data.check_out) data.check_out_spoken = spokenDate(data.check_out);
+    }
+  }
+
+  return r;
+}
+
+// ============================================================
 // Vapi webhook signature verification
 // ============================================================
 function verifyVapiSignature(req, res, next) {
@@ -91,10 +157,14 @@ export function registerVapiRoutes(app) {
           DEMO_BUSINESS_ID
         );
 
-        console.log(`   Result:`, JSON.stringify(result, null, 2));
+        // Strip verbose data (descriptions, IDs, raw dates) so Claude
+        // never accidentally reads technical info aloud to the caller
+        const voiceResult = formatResultForVapi(toolName, result);
+
+        console.log(`   Result:`, JSON.stringify(voiceResult, null, 2));
 
         // Send result back to Vapi in the expected format
-        res.json({ result: JSON.stringify(result) });
+        res.json({ result: JSON.stringify(voiceResult) });
       } catch (error) {
         console.error("Vapi tool-call error:", error);
         res.json({
