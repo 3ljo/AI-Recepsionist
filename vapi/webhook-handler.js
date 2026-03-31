@@ -226,6 +226,10 @@ export function registerVapiRoutes(app) {
 
   // ============================================================
   // POST /vapi/tool-call — Vapi sends tool calls here
+  // Handles BOTH formats:
+  //   1. Per-tool server.url: { message: { type: "function-call", functionCall: {...} } }
+  //   2. Assistant serverUrl: { message: { type: "tool-calls", toolCallList: [...] } }
+  //   3. Alternative format:  { message: { type: "function-call", functionCall: {...}, call: {...} } }
   // ============================================================
   app.post(
     "/vapi/tool-call",
@@ -234,34 +238,84 @@ export function registerVapiRoutes(app) {
     async (req, res) => {
       try {
         const body = req.body;
-
-        // Extract the function call from Vapi's message format
         const message = body.message;
 
-        if (!message || message.type !== "function-call") {
+        // Log everything so we can debug format issues
+        console.log("VAPI INCOMING:", JSON.stringify(body).substring(0, 2000));
+
+        if (!message) {
+          console.log("No message in body");
           return res.json({ result: "OK" });
         }
 
-        const functionCall = message.functionCall;
-        const toolName = functionCall.name;
-        const params = functionCall.parameters;
+        // ── FORMAT 1: "function-call" (per-tool server.url) ──
+        if (message.type === "function-call" && message.functionCall) {
+          const toolName = message.functionCall.name;
+          const params = message.functionCall.parameters || {};
 
-        console.log(`Vapi tool: ${toolName}`, JSON.stringify(params));
+          console.log(`Vapi tool (function-call): ${toolName}`, JSON.stringify(params));
 
-        // Execute the tool against Supabase
-        const result = await executeTool(
-          toolName,
-          params,
-          DEMO_BUSINESS_ID
-        );
+          const result = await executeTool(toolName, params, DEMO_BUSINESS_ID);
+          const voiceResult = formatResultForVapi(toolName, result);
 
-        // Format as plain-text voice script — NOT raw JSON
-        const voiceResult = formatResultForVapi(toolName, result);
+          console.log(`Vapi result: ${String(voiceResult).substring(0, 200)}`);
+          return res.json({ result: voiceResult });
+        }
 
-        console.log(`Vapi result: ${voiceResult.substring(0, 200)}...`);
+        // ── FORMAT 2: "tool-calls" (assistant serverUrl) ──
+        // Vapi sends: toolCallList[].id, toolCallList[].name, toolCallList[].parameters
+        // Also sends toolWithToolCallList[] with nested .toolCall.id / .toolCall.parameters
+        if (message.type === "tool-calls") {
+          // Prefer toolCallList (flat), fall back to toolWithToolCallList (nested)
+          const calls = message.toolCallList
+            || (message.toolWithToolCallList || []).map(t => ({
+                 id: t.toolCall?.id,
+                 name: t.name || t.function?.name,
+                 parameters: t.toolCall?.parameters || {},
+               }));
 
-        // Return as plain text string — Claude reads instructions, not JSON
-        res.json({ result: voiceResult });
+          if (!calls || calls.length === 0) {
+            console.log("tool-calls message but no calls found");
+            return res.json({ results: [] });
+          }
+
+          const results = [];
+
+          for (const toolCall of calls) {
+            // Vapi flat format: toolCall.name + toolCall.parameters
+            // OpenAI-style format: toolCall.function.name + toolCall.function.arguments
+            const toolName = toolCall.name || toolCall.function?.name;
+            let params = toolCall.parameters || toolCall.function?.arguments || {};
+
+            // arguments might be a JSON string
+            if (typeof params === "string") {
+              try { params = JSON.parse(params); } catch (e) { params = {}; }
+            }
+
+            console.log(`Vapi tool (tool-calls): ${toolName}`, JSON.stringify(params));
+
+            const result = await executeTool(toolName, params, DEMO_BUSINESS_ID);
+            const voiceResult = formatResultForVapi(toolName, result);
+            // Vapi requires single-line strings — newlines cause parsing errors
+            const singleLineResult = String(voiceResult).replace(/\r?\n/g, " ").replace(/\s{2,}/g, " ");
+
+            console.log(`Vapi result: ${singleLineResult.substring(0, 200)}`);
+
+            results.push({
+              name: toolName,
+              toolCallId: toolCall.id,
+              result: singleLineResult,
+            });
+          }
+
+          return res.json({ results });
+        }
+
+        // ── UNHANDLED — log full body so we can see what Vapi actually sends ──
+        console.log(`Vapi UNHANDLED message type: ${message.type || "unknown"}`);
+        console.log("FULL BODY:", JSON.stringify(body).substring(0, 3000));
+        return res.json({ result: "OK" });
+
       } catch (error) {
         console.error("Vapi tool-call error:", error);
         res.json({
