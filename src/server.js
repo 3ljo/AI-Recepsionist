@@ -428,4 +428,20 @@ app.listen(PORT, async () => {
 
 ======================================================
   `);
+
+  // ── KEEP-ALIVE PING ──────────────────────────────────
+  // Render free tier sleeps after 15 min of inactivity.
+  // Self-ping every 14 min to stay awake 24/7.
+  const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+  if (RENDER_URL) {
+    setInterval(async () => {
+      try {
+        await fetch(`${RENDER_URL}/status`);
+        logger.info("Keep-alive ping sent");
+      } catch (e) {
+        logger.warn("Keep-alive ping failed", { error: e.message });
+      }
+    }, 14 * 60 * 1000); // every 14 minutes
+    console.log("  Keep-alive: enabled (every 14 min)");
+  }
 });
