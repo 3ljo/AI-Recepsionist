@@ -531,6 +531,31 @@ IDs & CODES:
 
 ################################################################
 #                                                              #
+#   BANNED WORDS — THE MOST IMPORTANT RULE IN THIS PROMPT      #
+#                                                              #
+################################################################
+
+The following words are COMPLETELY BANNED from your output UNLESS
+the book_room tool has ALREADY been called AND returned success:
+
+BANNED: "confirmed", "all set", "booked", "reserved",
+        "reservation is confirmed", "you're booked",
+        "booking is complete", "reservation is set"
+
+You are INCAPABLE of confirming a booking by yourself.
+Only the book_room tool can create a booking in the database.
+If you say "confirmed" without calling book_room first:
+  → The database has NO record of any booking
+  → The guest arrives at the hotel and is TURNED AWAY
+
+When the caller says "yes" or "go ahead" or "confirm":
+  1. Say ONLY: "Let me confirm that for you right now."
+  2. Call book_room with resource_id, check_in, check_out, guest_name
+  3. WAIT for the tool result
+  4. ONLY after book_room returns success may you say "You're all set"
+
+################################################################
+#                                                              #
 #              BOOKING FLOW — FOLLOW THIS EXACTLY              #
 #                                                              #
 ################################################################
@@ -790,10 +815,17 @@ async function processMessage(businessId, conversationHistory, channel = "voice"
   });
 
   // TOOL USE LOOP — Claude might call multiple tools before giving a final answer
+  let toolsCalledThisTurn = [];
+
   while (response.stop_reason === "tool_use") {
     const toolUseBlocks = response.content.filter(
       (block) => block.type === "tool_use"
     );
+
+    // Track which tools were called this turn
+    for (const toolUse of toolUseBlocks) {
+      toolsCalledThisTurn.push(toolUse.name);
+    }
 
     conversationHistory.push({
       role: "assistant",
@@ -837,6 +869,64 @@ async function processMessage(businessId, conversationHistory, channel = "voice"
     (block) => block.type === "text"
   );
   let aiResponse = textBlocks.map((b) => b.text).join(" ");
+
+  // ============================================================
+  // BOOKING SAFEGUARD — catch fake confirmations
+  // If Claude says "confirmed/all set/booked" but never called
+  // book_room, force a correction so no ghost bookings happen.
+  // ============================================================
+  const confirmationWords = /\b(confirmed|all set|booked|reserved|reservation is confirmed)\b/i;
+  const lastUserMsg = conversationHistory.filter(m => m.role === "user").pop();
+  const userText = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
+  const callerIsConfirming = /\b(yes|yeah|sure|go ahead|book it|confirm|do it|please)\b/i.test(userText);
+
+  if (confirmationWords.test(aiResponse) && !toolsCalledThisTurn.includes("book_room") && callerIsConfirming) {
+    logger.warn("BOOKING SAFEGUARD: Claude said 'confirmed' without calling book_room — forcing retry");
+
+    conversationHistory.push({
+      role: "assistant",
+      content: response.content,
+    });
+
+    conversationHistory.push({
+      role: "user",
+      content: [{ type: "text", text: "SYSTEM: You just told the caller their booking is confirmed, but you NEVER called the book_room tool. NO BOOKING EXISTS. You must call book_room RIGHT NOW with the resource_id, check_in, check_out, and guest_name. Do NOT output any text — just call the tool." }],
+    });
+
+    // Give Claude another chance to actually call book_room
+    response = await callClaudeWithRetry({
+      ...callParams,
+      messages: conversationHistory,
+    });
+
+    // Process any tool calls from the retry
+    while (response.stop_reason === "tool_use") {
+      const retryToolBlocks = response.content.filter(b => b.type === "tool_use");
+      for (const toolUse of retryToolBlocks) {
+        toolsCalledThisTurn.push(toolUse.name);
+      }
+
+      conversationHistory.push({ role: "assistant", content: response.content });
+
+      const retryResults = [];
+      for (const toolUse of retryToolBlocks) {
+        const result = await executeTool(toolUse.name, toolUse.input, businessId);
+        const formatted = formatToolResultForVoice(toolUse.name, result, channel);
+        retryResults.push({
+          type: "tool_result",
+          tool_use_id: toolUse.id,
+          content: JSON.stringify(formatted),
+        });
+      }
+
+      conversationHistory.push({ role: "user", content: retryResults });
+      response = await callClaudeWithRetry({ ...callParams, messages: conversationHistory });
+    }
+
+    // Get the corrected response
+    const retryTextBlocks = response.content.filter(b => b.type === "text");
+    aiResponse = retryTextBlocks.map(b => b.text).join(" ");
+  }
 
   // Last line of defense: sanitize voice output to catch any leaked digits/IDs/dates
   if (channel === "voice") {
