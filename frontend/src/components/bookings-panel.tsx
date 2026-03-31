@@ -24,6 +24,8 @@ import {
   Grid3X3,
   CalendarDays,
   Sparkles,
+  Search,
+  CalendarSearch,
 } from "lucide-react";
 
 const BUSINESS_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
@@ -81,6 +83,9 @@ function isToday(d: Date) {
 function isWeekend(d: Date) {
   const day = d.getDay();
   return day === 0 || day === 6;
+}
+function getMonthYear(d: Date) {
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
 // -- booking bar colors --
@@ -179,6 +184,150 @@ const itemVariants = {
 } as const;
 
 // ================================================================
+// MINI CALENDAR — date picker for jumping to any date
+// ================================================================
+function MiniCalendar({
+  selectedDate,
+  onSelect,
+  onClose,
+}: {
+  selectedDate: Date;
+  onSelect: (d: Date) => void;
+  onClose: () => void;
+}) {
+  const [viewMonth, setViewMonth] = useState(new Date(selectedDate));
+  const calRef = useRef<HTMLDivElement>(null);
+
+  // Close on click outside
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (calRef.current && !calRef.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [onClose]);
+
+  const year = viewMonth.getFullYear();
+  const month = viewMonth.getMonth();
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  const todayStr = toDateStr(new Date());
+  const selectedStr = toDateStr(selectedDate);
+
+  const prevMonth = () => setViewMonth(new Date(year, month - 1, 1));
+  const nextMonth = () => setViewMonth(new Date(year, month + 1, 1));
+
+  // Build 6-row grid
+  const cells: { day: number; inMonth: boolean; date: Date }[] = [];
+  // Previous month trailing days
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const day = daysInPrevMonth - i;
+    cells.push({ day, inMonth: false, date: new Date(year, month - 1, day) });
+  }
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, inMonth: true, date: new Date(year, month, d) });
+  }
+  // Next month leading days
+  const remaining = 42 - cells.length;
+  for (let d = 1; d <= remaining; d++) {
+    cells.push({ day: d, inMonth: false, date: new Date(year, month + 1, d) });
+  }
+
+  const monthLabel = viewMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  return (
+    <motion.div
+      ref={calRef}
+      initial={{ opacity: 0, y: -8, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className={cn(
+        "absolute top-full mt-2 right-0 z-50 w-[300px]",
+        "rounded-2xl border border-edge-2 overflow-hidden",
+        "bg-[var(--surface)] backdrop-blur-[80px]",
+        "shadow-[0_16px_64px_rgba(0,0,0,0.25),0_0_32px_color-mix(in_srgb,var(--accent)_6%,transparent)]"
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-edge">
+        <button
+          onClick={prevMonth}
+          className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--glass-bg-hover)] transition-colors text-fg-muted hover:text-fg"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm font-display font-bold text-fg tracking-tight">{monthLabel}</span>
+        <button
+          onClick={nextMonth}
+          className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--glass-bg-hover)] transition-colors text-fg-muted hover:text-fg"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Day of week headers */}
+      <div className="grid grid-cols-7 px-3 pt-3 pb-1">
+        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+          <div key={d} className="text-center text-[10px] font-semibold text-fg-faint uppercase tracking-wider py-1">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="grid grid-cols-7 px-3 pb-3 gap-0.5">
+        {cells.map((cell, i) => {
+          const cellStr = toDateStr(cell.date);
+          const isTodayCell = cellStr === todayStr;
+          const isSelected = cellStr === selectedStr;
+          const isWkend = cell.date.getDay() === 0 || cell.date.getDay() === 6;
+
+          return (
+            <button
+              key={i}
+              onClick={() => {
+                onSelect(cell.date);
+                onClose();
+              }}
+              className={cn(
+                "relative w-full aspect-square rounded-lg flex items-center justify-center text-xs font-medium transition-all duration-150",
+                cell.inMonth ? "text-fg hover:bg-[var(--glass-bg-hover)]" : "text-fg-faint/40",
+                isWkend && cell.inMonth && "text-fg-faint",
+                isTodayCell && !isSelected && "bg-accent/10 text-accent font-bold",
+                isSelected && "bg-accent text-white font-bold shadow-[0_0_16px_color-mix(in_srgb,var(--accent)_40%,transparent)]"
+              )}
+            >
+              {cell.day}
+              {isTodayCell && !isSelected && (
+                <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Quick navigation */}
+      <div className="border-t border-edge px-3 py-2.5 flex items-center gap-2">
+        <button
+          onClick={() => {
+            onSelect(new Date());
+            onClose();
+          }}
+          className="flex-1 text-xs font-semibold text-accent hover:text-accent-bright transition-colors text-center py-1.5 rounded-lg hover:bg-accent/5"
+        >
+          Go to Today
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ================================================================
 export function BookingsPanel() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -188,6 +337,8 @@ export function BookingsPanel() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [hoveredRoom, setHoveredRoom] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchData = useCallback(async () => {
     const [roomsRes, bookingsRes] = await Promise.all([
@@ -233,6 +384,15 @@ export function BookingsPanel() {
 
   const todayStr = toDateStr(new Date());
 
+  // Jump to a specific date
+  const jumpToDate = useCallback((date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((date.getTime() - today.getTime()) / 86_400_000);
+    setWeekOffset(Math.floor(diffDays / 7));
+  }, []);
+
   // -- computed stats --
   const occupiedCount = useMemo(
     () => rooms.filter((r) => bookings.some((b) => b.resource_id === r.id && b.check_in <= todayStr && b.check_out > todayStr)).length,
@@ -268,6 +428,18 @@ export function BookingsPanel() {
   const visibleBookings = bookings.filter(
     (b) => b.check_in < endDateStr && b.check_out > startDateStr
   );
+
+  // -- search filter --
+  const filteredBookings = useMemo(() => {
+    if (!searchQuery.trim()) return bookings;
+    const q = searchQuery.toLowerCase();
+    return bookings.filter(
+      (b) =>
+        b.guest_name.toLowerCase().includes(q) ||
+        b.guest_phone?.toLowerCase().includes(q) ||
+        b.resources?.name?.toLowerCase().includes(q)
+    );
+  }, [bookings, searchQuery]);
 
   if (loading) {
     return (
@@ -308,6 +480,32 @@ export function BookingsPanel() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Search input */}
+            <div className="relative hidden sm:block">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-faint" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search guest..."
+                className={cn(
+                  "w-40 pl-8 pr-3 py-1.5 rounded-xl text-xs font-medium",
+                  "bg-[var(--input-bg)] border border-[var(--input-border)]",
+                  "text-fg placeholder:text-[var(--input-placeholder)]",
+                  "focus:outline-none focus:border-[var(--input-focus-border)] focus:ring-2 focus:ring-[var(--input-focus-ring)]",
+                  "transition-all duration-200"
+                )}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-fg-faint/20 flex items-center justify-center hover:bg-fg-faint/30 transition-colors"
+                >
+                  <X className="w-2.5 h-2.5 text-fg-faint" />
+                </button>
+              )}
+            </div>
+
             {/* View mode toggle */}
             <div className="flex items-center bg-[var(--glass-bg)] rounded-xl border border-edge p-1">
               <motion.button
@@ -325,7 +523,7 @@ export function BookingsPanel() {
                   />
                 )}
                 <Grid3X3 className="w-3.5 h-3.5 relative z-10" />
-                <span className="relative z-10">Spatial Grid</span>
+                <span className="relative z-10 hidden sm:inline">Rooms</span>
               </motion.button>
               <motion.button
                 onClick={() => setViewMode("timeline")}
@@ -342,7 +540,7 @@ export function BookingsPanel() {
                   />
                 )}
                 <CalendarDays className="w-3.5 h-3.5 relative z-10" />
-                <span className="relative z-10">Timeline</span>
+                <span className="relative z-10 hidden sm:inline">Timeline</span>
               </motion.button>
             </div>
 
@@ -426,7 +624,7 @@ export function BookingsPanel() {
             >
               <SpatialGrid
                 rooms={rooms}
-                bookings={bookings}
+                bookings={searchQuery ? filteredBookings : bookings}
                 todayStr={todayStr}
                 hoveredRoom={hoveredRoom}
                 setHoveredRoom={setHoveredRoom}
@@ -444,7 +642,7 @@ export function BookingsPanel() {
               <TimelineView
                 rooms={rooms}
                 bookings={bookings}
-                visibleBookings={visibleBookings}
+                visibleBookings={searchQuery ? visibleBookings.filter((b) => filteredBookings.some((fb) => fb.id === b.id)) : visibleBookings}
                 days={days}
                 startDate={startDate}
                 weekOffset={weekOffset}
@@ -452,6 +650,9 @@ export function BookingsPanel() {
                 selectedBooking={selectedBooking}
                 setSelectedBooking={setSelectedBooking}
                 todayStr={todayStr}
+                showDatePicker={showDatePicker}
+                setShowDatePicker={setShowDatePicker}
+                jumpToDate={jumpToDate}
               />
             </motion.div>
           )}
@@ -610,8 +811,8 @@ function SpatialGrid({
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-fg-faint mb-1.5 font-data">
-                        <span>{booking.check_in}</span>
-                        <span>{booking.check_out}</span>
+                        <span>{new Date(booking.check_in + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                        <span>{new Date(booking.check_out + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                       </div>
                       {/* Progress bar */}
                       <div className="h-1.5 rounded-full bg-[var(--glass-bg-hover)] overflow-hidden">
@@ -653,7 +854,7 @@ function SpatialGrid({
 }
 
 // ================================================================
-// TIMELINE VIEW
+// TIMELINE VIEW — completely redesigned
 // ================================================================
 function TimelineView({
   rooms,
@@ -666,6 +867,9 @@ function TimelineView({
   selectedBooking,
   setSelectedBooking,
   todayStr,
+  showDatePicker,
+  setShowDatePicker,
+  jumpToDate,
 }: {
   rooms: Room[];
   bookings: Booking[];
@@ -677,6 +881,9 @@ function TimelineView({
   selectedBooking: Booking | null;
   setSelectedBooking: (b: Booking | null) => void;
   todayStr: string;
+  showDatePicker: boolean;
+  setShowDatePicker: (v: boolean) => void;
+  jumpToDate: (d: Date) => void;
 }) {
   // Calculate today line position
   const todayOffset = useMemo(() => {
@@ -688,39 +895,100 @@ function TimelineView({
     return ((now - start) / (end - start)) * 100;
   }, [startDate]);
 
+  // Month boundary labels for the header
+  const monthLabels = useMemo(() => {
+    const labels: { month: string; startIdx: number; span: number }[] = [];
+    let currentMonth = "";
+    let startIdx = 0;
+
+    days.forEach((d, i) => {
+      const m = d.toLocaleDateString("en-US", { month: "short" });
+      if (m !== currentMonth) {
+        if (currentMonth) {
+          labels.push({ month: currentMonth, startIdx, span: i - startIdx });
+        }
+        currentMonth = m;
+        startIdx = i;
+      }
+    });
+    labels.push({ month: currentMonth, startIdx, span: days.length - startIdx });
+    return labels;
+  }, [days]);
+
   return (
     <div className="flex flex-col">
-      {/* Calendar navigation */}
-      <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-edge flex items-center justify-between">
-        <GlowButton variant="ghost" size="icon" onClick={() => setWeekOffset((w: number) => w - 1)}>
-          <ChevronLeft className="w-4 h-4" />
-        </GlowButton>
-
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold text-fg tracking-tight font-display">
-            {shortDate(days[0])} &mdash; {shortDate(days[days.length - 1])}
-          </span>
-          {weekOffset !== 0 && (
-            <GlowButton
-              variant="secondary"
-              size="sm"
-              onClick={() => setWeekOffset(() => 0)}
-            >
-              Today
+      {/* Calendar navigation bar */}
+      <div className="shrink-0 px-4 sm:px-6 py-3 border-b border-edge">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <GlowButton variant="ghost" size="icon" onClick={() => setWeekOffset((w: number) => w - 1)}>
+              <ChevronLeft className="w-4 h-4" />
             </GlowButton>
-          )}
-        </div>
+            <GlowButton variant="ghost" size="icon" onClick={() => setWeekOffset((w: number) => w + 1)}>
+              <ChevronRight className="w-4 h-4" />
+            </GlowButton>
+          </div>
 
-        <GlowButton variant="ghost" size="icon" onClick={() => setWeekOffset((w: number) => w + 1)}>
-          <ChevronRight className="w-4 h-4" />
-        </GlowButton>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-fg tracking-tight font-display">
+              {shortDate(days[0])} &mdash; {shortDate(days[days.length - 1])}, {days[days.length - 1].getFullYear()}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {weekOffset !== 0 && (
+              <GlowButton
+                variant="secondary"
+                size="sm"
+                onClick={() => setWeekOffset(() => 0)}
+              >
+                Today
+              </GlowButton>
+            )}
+
+            {/* Date picker button */}
+            <div className="relative">
+              <GlowButton
+                variant={showDatePicker ? "primary" : "ghost"}
+                size="icon"
+                onClick={() => setShowDatePicker(!showDatePicker)}
+              >
+                <CalendarSearch className="w-4 h-4" />
+              </GlowButton>
+
+              <AnimatePresence>
+                {showDatePicker && (
+                  <MiniCalendar
+                    selectedDate={startDate}
+                    onSelect={(d) => jumpToDate(d)}
+                    onClose={() => setShowDatePicker(false)}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Timeline grid */}
       <div className="flex-1 overflow-auto">
         <div className="min-w-[700px]">
+          {/* Month label row */}
+          <div className="flex border-b border-edge/50">
+            <div className="w-40 sm:w-48 shrink-0" />
+            {monthLabels.map((ml, i) => (
+              <div
+                key={`${ml.month}-${i}`}
+                className="text-[10px] font-bold text-fg-faint uppercase tracking-[0.15em] py-1.5 px-2 border-l border-edge/30 first:border-l-0"
+                style={{ flex: ml.span, minWidth: ml.span * 52 }}
+              >
+                {ml.month}
+              </div>
+            ))}
+          </div>
+
           {/* Day headers */}
-          <div className="sticky top-0 z-10 backdrop-blur-2xl bg-[var(--surface)]/80 border-b border-edge flex">
+          <div className="sticky top-0 z-10 border-b border-edge flex" style={{ background: "var(--surface)" }}>
             <div className="w-40 sm:w-48 shrink-0 p-2.5 pl-5 text-[10px] font-semibold text-fg-faint uppercase tracking-[0.15em] flex items-center">
               Room
             </div>
@@ -731,40 +999,32 @@ function TimelineView({
                 <div
                   key={toDateStr(d)}
                   className={cn(
-                    "flex-1 min-w-[52px] p-1.5 text-center border-l border-edge transition-colors",
-                    weekend && "bg-[var(--glass-bg)]",
-                    today && "bg-accent/[0.06]"
+                    "flex-1 min-w-[52px] py-2 px-1 text-center border-l transition-colors",
+                    weekend ? "bg-[var(--surface-2)]/50 border-edge/30" : "border-edge/30",
+                    today && "bg-accent/[0.08]"
                   )}
                 >
                   <p
                     className={cn(
                       "text-[10px] uppercase tracking-wider font-semibold",
-                      today ? "text-accent" : "text-fg-faint"
+                      today ? "text-accent" : weekend ? "text-fg-faint/60" : "text-fg-faint"
                     )}
                   >
                     {shortDay(d)}
                   </p>
-                  <p
-                    className={cn(
-                      "text-xs font-semibold mt-0.5 font-data",
-                      today ? "text-accent" : "text-fg-muted"
+                  <div className="relative inline-flex items-center justify-center mt-0.5">
+                    {today && (
+                      <div className="absolute inset-0 -m-1 rounded-full bg-accent" />
                     )}
-                  >
-                    {d.getDate()}
-                  </p>
-                  {today && (
-                    <motion.div
-                      className="w-1.5 h-1.5 rounded-full bg-accent mx-auto mt-0.5"
-                      animate={{
-                        boxShadow: [
-                          "0 0 4px color-mix(in srgb, var(--accent) 50%, transparent)",
-                          "0 0 12px color-mix(in srgb, var(--accent) 80%, transparent)",
-                          "0 0 4px color-mix(in srgb, var(--accent) 50%, transparent)",
-                        ],
-                      }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    />
-                  )}
+                    <p
+                      className={cn(
+                        "text-xs font-bold font-data relative z-10",
+                        today ? "text-white" : weekend ? "text-fg-faint/70" : "text-fg-muted"
+                      )}
+                    >
+                      {d.getDate()}
+                    </p>
+                  </div>
                 </div>
               );
             })}
@@ -790,7 +1050,7 @@ function TimelineView({
                   <motion.div
                     key={room.id}
                     variants={itemVariants}
-                    className="flex border-b border-edge group hover:bg-[var(--glass-bg)] transition-all duration-300"
+                    className="flex border-b border-edge/50 group hover:bg-[var(--glass-bg)]/30 transition-all duration-300"
                   >
                     {/* Room info */}
                     <div className="w-40 sm:w-48 shrink-0 p-3 pl-5 flex items-center gap-2.5">
@@ -820,36 +1080,28 @@ function TimelineView({
                     </div>
 
                     {/* Day cells + booking bars */}
-                    <div className="flex flex-1 relative" style={{ minHeight: 60 }}>
+                    <div className="flex flex-1 relative" style={{ minHeight: 56 }}>
                       {/* Background cells */}
                       {days.map((d) => (
                         <div
                           key={toDateStr(d)}
                           className={cn(
-                            "flex-1 min-w-[52px] border-l border-edge/50 transition-colors",
-                            isWeekend(d) && "bg-[var(--glass-bg)]",
-                            isToday(d) && "bg-accent/[0.03]"
+                            "flex-1 min-w-[52px] border-l transition-colors",
+                            isWeekend(d) ? "bg-[var(--surface-2)]/30 border-edge/20" : "border-edge/20",
+                            isToday(d) && "bg-accent/[0.04]"
                           )}
                         />
                       ))}
 
                       {/* Today vertical line */}
                       {todayOffset !== null && (
-                        <motion.div
-                          className="absolute top-0 bottom-0 w-px z-10"
+                        <div
+                          className="absolute top-0 bottom-0 w-px z-10 pointer-events-none"
                           style={{
                             left: `${todayOffset}%`,
-                            background: "linear-gradient(to bottom, color-mix(in srgb, var(--accent) 60%, transparent), color-mix(in srgb, var(--accent) 10%, transparent))",
-                            boxShadow: "0 0 8px color-mix(in srgb, var(--accent) 40%, transparent)",
+                            background: "var(--accent)",
+                            opacity: 0.4,
                           }}
-                          animate={{
-                            boxShadow: [
-                              "0 0 8px color-mix(in srgb, var(--accent) 30%, transparent)",
-                              "0 0 16px color-mix(in srgb, var(--accent) 60%, transparent)",
-                              "0 0 8px color-mix(in srgb, var(--accent) 30%, transparent)",
-                            ],
-                          }}
-                          transition={{ duration: 3, repeat: Infinity }}
                         />
                       )}
 
@@ -884,10 +1136,10 @@ function TimelineView({
                               )
                             }
                             className={cn(
-                              "absolute top-2.5 bottom-2.5 flex items-center gap-1.5 px-2.5 cursor-pointer",
-                              "backdrop-blur-md border transition-all duration-300",
-                              clippedLeft ? "rounded-l-none" : "rounded-l-xl",
-                              clippedRight ? "rounded-r-none" : "rounded-r-xl",
+                              "absolute top-2 bottom-2 flex items-center gap-1.5 px-2.5 cursor-pointer",
+                              "backdrop-blur-md border transition-all duration-200",
+                              clippedLeft ? "rounded-l-none" : "rounded-l-lg",
+                              clippedRight ? "rounded-r-none" : "rounded-r-lg",
                               isSelected && "ring-2 ring-accent/50 brightness-125 z-20"
                             )}
                             style={{
@@ -900,10 +1152,10 @@ function TimelineView({
                                 : "none",
                             }}
                             whileHover={{
-                              scale: 1.02,
-                              boxShadow: `0 0 20px ${clr.glow}`,
+                              scale: 1.03,
+                              boxShadow: `0 0 16px ${clr.glow}`,
                             }}
-                            transition={{ duration: 0.2 }}
+                            transition={{ duration: 0.15 }}
                           >
                             <span
                               className={cn(
@@ -913,6 +1165,11 @@ function TimelineView({
                             >
                               {booking.guest_name}
                             </span>
+                            {spanDays >= 3 && (
+                              <span className="text-[9px] text-fg-faint truncate hidden sm:inline">
+                                {spanDays}n
+                              </span>
+                            )}
                           </motion.button>
                         );
                       })}
